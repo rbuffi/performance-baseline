@@ -1,0 +1,24 @@
+vcenter:
+  host: vcenter.example.com
+  username: administrator@vsphere.local
+  port: 443
+  insecure: true
+
+influxdb:
+  host: influx.example.com
+  port: 8086
+  username: telegraf
+  database: performance
+  ssl: false
+
+vm: perf-test-01
+vmotion:
+  hosts:
+    - esxi-a.example.com
+    - esxi-b.example.com
+storage_vmotion:
+  datastores:
+    - datastore-a
+    - datastore-b
+boot:
+  event_lookback_hours: 24

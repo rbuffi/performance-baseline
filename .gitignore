@@ -1,0 +1,13 @@
+.env
+config.yaml
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.DS_Store
+.pytest_cache/
+.mypy_cache/
