@@ -29,6 +29,21 @@ INFLUX_PASSWORD=...
 
 ## Gebruik
 
+Zet in `config.yaml` welke tests moeten draaien. Daarna volstaat:
+
+```bash
+python -m perfbaseline
+```
+
+```yaml
+tests:
+  - svmotion
+  - vmotion
+  - boot
+```
+
+CLI-flags overschrijven de config (handig om één test te forceren):
+
 ```bash
 python -m perfbaseline --svmotion
 python -m perfbaseline --vmotion --dest-host esxi-b.example.com
@@ -64,6 +79,7 @@ Zonder `--dest-host` / `--dest-datastore` kiest het script de andere host of dat
 | `INFLUX_HOST`        | override `influxdb.host`      |
 | `INFLUX_DATABASE`    | override `influxdb.database`  |
 | `PERF_VM`            | override `vm`                 |
+| `PERF_TESTS`         | override `tests` (comma-separated: `svmotion,vmotion,boot`) |
 | `CONFIG_PATH`        | pad naar YAML-config          |
 
 vCenter-account heeft o.a. nodig: Resource.Migrate / Relocate, plus read-rechten op VM, hosts, datastores, events en performance.

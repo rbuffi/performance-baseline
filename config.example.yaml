@@ -12,6 +12,10 @@ influxdb:
   ssl: false
 
 vm: perf-test-01
+tests:
+  - svmotion
+  - vmotion
+  - boot
 vmotion:
   hosts:
     - esxi-a.example.com

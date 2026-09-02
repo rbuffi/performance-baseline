@@ -9,6 +9,16 @@ import yaml
 from dotenv import load_dotenv
 
 
+VALID_TESTS = ("svmotion", "vmotion", "boot")
+_TEST_ALIASES = {
+    "svmotion": "svmotion",
+    "storage_vmotion": "svmotion",
+    "storage-vmotion": "svmotion",
+    "vmotion": "vmotion",
+    "boot": "boot",
+}
+
+
 class ConfigError(Exception):
     """Invalid or incomplete configuration."""
 
@@ -37,6 +47,7 @@ class AppConfig:
     vcenter: VCenterConfig
     influxdb: InfluxConfig
     vm: str
+    tests: list[str] = field(default_factory=list)
     vmotion_hosts: list[str] = field(default_factory=list)
     svmotion_datastores: list[str] = field(default_factory=list)
     boot_lookback_hours: int = 24
@@ -68,6 +79,23 @@ def _as_str_list(value: Any) -> list[str]:
     if isinstance(value, str):
         return [item.strip() for item in value.split(",") if item.strip()]
     return [str(item) for item in value]
+
+
+def parse_tests(value: Any) -> list[str]:
+    """Normalize a tests list from YAML or PERF_TESTS. Preserves order, drops duplicates."""
+    seen: set[str] = set()
+    tests: list[str] = []
+    for raw in _as_str_list(value):
+        key = raw.strip().lower()
+        name = _TEST_ALIASES.get(key)
+        if name is None:
+            raise ConfigError(
+                f"Unknown test {raw!r}. Valid values: {', '.join(VALID_TESTS)}"
+            )
+        if name not in seen:
+            seen.add(name)
+            tests.append(name)
+    return tests
 
 
 def _env(name: str, fallback: Any = None) -> Any:
@@ -133,6 +161,7 @@ def load_config(path: str | Path | None = None) -> AppConfig:
         vcenter=vcenter,
         influxdb=influxdb,
         vm=str(_require(_env("PERF_VM", raw.get("vm")), "vm")),
+        tests=parse_tests(_env("PERF_TESTS", raw.get("tests"))),
         vmotion_hosts=_as_str_list(
             _env("VMOTION_HOSTS", vmotion_raw.get("hosts"))
         ),

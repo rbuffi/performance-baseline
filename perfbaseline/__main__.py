@@ -28,6 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         epilog=(
             "examples:\n"
+            "  python -m perfbaseline\n"
             "  python -m perfbaseline --svmotion\n"
             "  python -m perfbaseline --vmotion --dest-host esxi-b.example.com\n"
             "  python -m perfbaseline --boot\n"
@@ -44,17 +45,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--svmotion",
         action="store_true",
-        help="Run a storage vMotion and write duration + rate",
+        help="Run a storage vMotion (overrides tests in config.yaml)",
     )
     parser.add_argument(
         "--vmotion",
         action="store_true",
-        help="Run a compute vMotion and write duration + rate",
+        help="Run a compute vMotion (overrides tests in config.yaml)",
     )
     parser.add_argument(
         "--boot",
         action="store_true",
-        help="Read last starttime/osstarttime from vCenter (no power-cycle)",
+        help="Read last starttime/osstarttime from vCenter (overrides tests in config.yaml)",
     )
     parser.add_argument("--vm", help="Override the VM name from config")
     parser.add_argument(
@@ -79,11 +80,23 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def selected_tests(args: Namespace, cfg: AppConfig) -> list[str]:
+    """CLI flags override config.yaml / PERF_TESTS; otherwise use configured tests."""
+    from_flags = [
+        name
+        for name, enabled in (
+            ("svmotion", args.svmotion),
+            ("vmotion", args.vmotion),
+            ("boot", args.boot),
+        )
+        if enabled
+    ]
+    return from_flags or list(cfg.tests)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if not (args.svmotion or args.vmotion or args.boot):
-        parser.error("Specify at least one of --svmotion --vmotion --boot")
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
@@ -96,8 +109,17 @@ def main(argv: list[str] | None = None) -> int:
         logger.error("%s", exc)
         return 2
 
+    tests = selected_tests(args, cfg)
+    if not tests:
+        logger.error(
+            "No tests selected. Set tests in config.yaml (tests: [svmotion, vmotion, boot]) "
+            "or pass --svmotion / --vmotion / --boot."
+        )
+        return 2
+
     if args.vm:
         cfg.vm = args.vm
+    logger.info("Running tests: %s", ", ".join(tests))
 
     failures = 0
     try:
@@ -113,24 +135,24 @@ def main(argv: list[str] | None = None) -> int:
                 writer = InfluxWriter(cfg.influxdb)
                 writer.connect()
             try:
-                if args.svmotion:
+                if "svmotion" in tests:
                     try:
                         _run_svmotion(vcenter, writer, cfg, args)
                     except Exception as exc:
                         failures += 1
                         logger.error("Storage vMotion failed: %s", exc)
-                if args.vmotion:
+                if "vmotion" in tests:
                     try:
                         _run_vmotion(vcenter, writer, cfg, args)
-                    except Exception as exc:
+                    except Exception as extra:
                         failures += 1
-                        logger.error("vMotion failed: %s", exc)
-                if args.boot:
+                        logger.error("vMotion failed: %s", extra)
+                if "boot" in tests:
                     try:
                         _run_boot(vcenter, writer, cfg, args)
-                    except Exception as exc:
+                    except Exception as extra:
                         failures += 1
-                        logger.error("Boot test failed: %s", exc)
+                        logger.error("Boot test failed: %s", extra)
             finally:
                 if writer is not None:
                     writer.close()
